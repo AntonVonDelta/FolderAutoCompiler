@@ -1,5 +1,9 @@
 # FolderAutoCompiler
-A tool which "compiles" multiple folders into one for better management
+A tool which "compiles" multiple folders into one for better management.
+
+The problem with some projects it that they are fragmented among multiple folders. You can have files in Kicad project directory, the server code in a C++ projects folder and a test website running in an IIS workspace. Now you can combine all those folders easily by using a config file. All the specified folders are copied and renamed accordingly. 
+
+Now you can push to git only the compiled folder.
 
 # How to use it
 Create a file in the same folder as the exe named `repoconfig.txt`. 
