@@ -15,6 +15,7 @@ vector<string> getQuotesStrings(string input, bool exclude_quptes = true);
 void executeCommand(ostringstream& stream);
 string addTraillingSlash(string path);
 void printTitle(string title);
+void printDescription(string title);
 bool isEmpty(string text);
 
 enum class CONFIG_SECTION :int {
@@ -106,6 +107,10 @@ bool processConfig(string current_path_endslash) {
 	string repo_folder = config_data[CONFIG_SECTION::REPO_NAME].back();
 	string repo_folder_path = current_path_endslash + repo_folder;
 
+	// Show detected arguments
+	printDescription(string("REPO NAME: ") + repo_folder);
+	printDescription(string("OVERWRITE: ") + (overwrite_files ? "true" : "false"));
+	printDescription("");
 
 	// Run pre process commands
 	printTitle("RUNNING PRE-PROCESS TASKS");
@@ -120,29 +125,29 @@ bool processConfig(string current_path_endslash) {
 
 	// Check if destination folder contains .git folder. 
 	// In that case abort because we would delete it.
-	printTitle("DOES .git FOLDER EXIST IN DESTINATION FOLDERS?");
-	for (auto& el : config_data[CONFIG_SECTION::LIST]) {
-		string src_folder_path;
-		string dest_folder_name;
-		vector<string> quoted_strings = getQuotesStrings(el);
-
-		if (quoted_strings.size() != 2) {
-			cout << "Incorrect number of quoted strings in line: " << el << endl;
-			return false;
-		}
-
-		src_folder_path = quoted_strings[0];
-		dest_folder_name = quoted_strings[1];
-		string git_path = addTraillingSlash(repo_folder + string("\\") + dest_folder_name) + ".git";
-
-		if (filesystem::exists(git_path)) {
-			cout << "Error: found .git folder in " << repo_folder + string("\\") + dest_folder_name << endl;
-			return false;
-		}
-	}
-
-	// Delete previous folders
 	if (!overwrite_files) {
+		printTitle("DOES .git FOLDER EXIST IN DESTINATION FOLDERS?");
+		for (auto& el : config_data[CONFIG_SECTION::LIST]) {
+			string src_folder_path;
+			string dest_folder_name;
+			vector<string> quoted_strings = getQuotesStrings(el);
+
+			if (quoted_strings.size() != 2) {
+				cout << "Incorrect number of quoted strings in line: " << el << endl;
+				return false;
+			}
+
+			src_folder_path = quoted_strings[0];
+			dest_folder_name = quoted_strings[1];
+			string git_path = addTraillingSlash(repo_folder + string("\\") + dest_folder_name) + ".git";
+
+			if (filesystem::exists(git_path)) {
+				cout << "Error: found .git folder in " << repo_folder + string("\\") + dest_folder_name << endl;
+				return false;
+			}
+		}
+
+		// Delete previous folders
 		printTitle("DELETE PREVIOUSLY ADDED FOLDERS");
 		for (auto& el : config_data[CONFIG_SECTION::LIST]) {
 			string src_folder_path;
@@ -162,7 +167,26 @@ bool processConfig(string current_path_endslash) {
 		}
 	}
 	else {
-		printTitle("OVERWRITE OPTION USED");
+		printTitle("DOES .git FOLDER EXIST IN SOURCE FOLDERS?");
+		for (auto& el : config_data[CONFIG_SECTION::LIST]) {
+			string src_folder_path;
+			string dest_folder_name;
+			vector<string> quoted_strings = getQuotesStrings(el);
+
+			if (quoted_strings.size() != 2) {
+				cout << "Incorrect number of quoted strings in line: " << el << endl;
+				return false;
+			}
+
+			src_folder_path = quoted_strings[0];
+			dest_folder_name = quoted_strings[1];
+			string git_path = addTraillingSlash(src_folder_path) + ".git";
+
+			if (filesystem::exists(git_path)) {
+				cout << "Error: found .git folder in " << repo_folder + string("\\") + src_folder_path << endl;
+				return false;
+			}
+		}
 	}
 
 
@@ -253,6 +277,10 @@ string addTraillingSlash(string path) {
 
 void printTitle(string title) {
 	cout << "====== " << title << " ======" << endl;
+}
+
+void printDescription(string title) {
+	cout << "       " << title << endl;
 }
 
 bool isEmpty(string text) {
