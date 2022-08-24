@@ -21,6 +21,7 @@ enum class CONFIG_SECTION :int {
 	NONE,
 	PRE,
 	REPO_NAME,
+	OVERWRITE,
 	LIST,
 	POST
 };
@@ -30,6 +31,7 @@ const string config_name = "repoconfig.txt";
 const map<string, CONFIG_SECTION> section_mapping = {
 	{"pre",CONFIG_SECTION::PRE},
 	{"repo_name",CONFIG_SECTION::REPO_NAME},
+	{"overwrite", CONFIG_SECTION::OVERWRITE},
 	{"list",CONFIG_SECTION::LIST},
 	{"post",CONFIG_SECTION::POST}
 };
@@ -59,7 +61,7 @@ int main(int argc, char* argv[]) {
 bool processConfig(string current_path_endslash) {
 	string config_path = current_path_endslash + config_name;
 	ifstream fi(config_path);
-	map< CONFIG_SECTION, vector<string>> config_data;
+	map<CONFIG_SECTION, vector<string>> config_data;
 	CONFIG_SECTION current_config_section = CONFIG_SECTION::NONE;
 
 	if (!fi) {
@@ -100,6 +102,7 @@ bool processConfig(string current_path_endslash) {
 	}
 
 	ostringstream sys_command;
+	bool overwrite_files = config_data[CONFIG_SECTION::OVERWRITE].size();
 	string repo_folder = config_data[CONFIG_SECTION::REPO_NAME].back();
 	string repo_folder_path = current_path_endslash + repo_folder;
 
@@ -115,8 +118,9 @@ bool processConfig(string current_path_endslash) {
 	sys_command << "mkdir \"" << repo_folder << "\"";
 	executeCommand(sys_command);
 
-	// Delete previous folders
-	printTitle("DELETE PREVIOUSLY ADDED FOLDERS");
+	// Check if destination folder contains .git folder. 
+	// In that case abort because we would delete it.
+	printTitle("DOES .git FOLDER EXIST IN DESTINATION FOLDERS?");
 	for (auto& el : config_data[CONFIG_SECTION::LIST]) {
 		string src_folder_path;
 		string dest_folder_name;
@@ -129,10 +133,38 @@ bool processConfig(string current_path_endslash) {
 
 		src_folder_path = quoted_strings[0];
 		dest_folder_name = quoted_strings[1];
+		string git_path = addTraillingSlash(repo_folder + string("\\") + dest_folder_name) + ".git";
 
-		sys_command << "rmdir /S /Q \"" << repo_folder << "\\" << dest_folder_name << "\"";
-		executeCommand(sys_command);
+		if (filesystem::exists(git_path)) {
+			cout << "Error: found .git folder in " << repo_folder + string("\\") + dest_folder_name << endl;
+			return false;
+		}
 	}
+
+	// Delete previous folders
+	if (!overwrite_files) {
+		printTitle("DELETE PREVIOUSLY ADDED FOLDERS");
+		for (auto& el : config_data[CONFIG_SECTION::LIST]) {
+			string src_folder_path;
+			string dest_folder_name;
+			vector<string> quoted_strings = getQuotesStrings(el);
+
+			if (quoted_strings.size() != 2) {
+				cout << "Incorrect number of quoted strings in line: " << el << endl;
+				return false;
+			}
+
+			src_folder_path = quoted_strings[0];
+			dest_folder_name = quoted_strings[1];
+
+			sys_command << "rmdir /S /Q \"" << repo_folder << "\\" << dest_folder_name << "\"";
+			executeCommand(sys_command);
+		}
+	}
+	else {
+		printTitle("OVERWRITE OPTION USED");
+	}
+
 
 	// Copy folders again
 	printTitle("COPY SPECIFIED FOLDERS");
@@ -150,8 +182,14 @@ bool processConfig(string current_path_endslash) {
 		dest_folder_name << addTraillingSlash(repo_folder_path) << quoted_strings[1];
 
 		try {
-			filesystem::copy(src_folder_path.str(), dest_folder_name.str(), filesystem::copy_options::recursive);
-		} catch (exception ex) {
+			if (overwrite_files) {
+				filesystem::copy(src_folder_path.str(), dest_folder_name.str(), filesystem::copy_options::recursive | filesystem::copy_options::overwrite_existing);
+			}
+			else {
+				filesystem::copy(src_folder_path.str(), dest_folder_name.str(), filesystem::copy_options::recursive);
+			}
+		}
+		catch (exception ex) {
 			cout << "Could not copy file " << src_folder_path.str() << " to " << dest_folder_name.str() << endl;
 			return false;
 		}
@@ -170,13 +208,11 @@ bool processConfig(string current_path_endslash) {
 	return true;
 }
 
-vector<string> getQuotesStrings(string input, bool exclude_quptes) {
+vector<string> getQuotesStrings(string input, bool exclude_quotes) {
 	vector<string> result;
 	size_t start_index = 0;
 	size_t first_quote;
 	size_t second_quote;
-
-
 
 	while (true) {
 		first_quote = input.find('"', start_index);
@@ -185,10 +221,11 @@ vector<string> getQuotesStrings(string input, bool exclude_quptes) {
 		second_quote = input.find('"', first_quote + 1);
 		if (second_quote == string::npos) return result;
 
-		if (exclude_quptes) {
+		if (exclude_quotes) {
 			// Cut the string excluding quotes
 			result.push_back(input.substr(first_quote + 1, second_quote - first_quote - 1));
-		} else {
+		}
+		else {
 			// Cut the whole string with quotes
 			result.push_back(input.substr(first_quote, second_quote - first_quote + 1));
 		}
