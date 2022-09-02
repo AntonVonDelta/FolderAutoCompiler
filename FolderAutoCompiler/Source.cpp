@@ -8,6 +8,7 @@
 #include <sstream>
 #include <filesystem>
 #include <functional>
+#include <regex>
 
 #define STOP MessageBoxA(NULL,"Stop","Stop",MB_OK)
 
@@ -216,20 +217,20 @@ bool buildConfigData(ifstream& fi, map<CONFIG_SECTION, vector<string>>& config_d
 
 	while (getline(fi, line)) {
 		string lower_case_line = toLower(line);
+		regex header_regex("\\s*(\\w+)\\s*:\\s*");
+		smatch match;
 
-		// Search for : at the end
-		size_t end_delimitator = lower_case_line.find(':');
-		if (end_delimitator != string::npos) {
-			lower_case_line = lower_case_line.substr(0, end_delimitator);
+		if (regex_match(lower_case_line, match, header_regex)) {
+			// Found section header
+			string header_name = match[1];
 
-			auto found_section = section_mapping.find(lower_case_line);
-			if (found_section != section_mapping.end()) {
-				// Found a new section
-				current_config_section = (*found_section).second;
-				continue;
+			auto found_section = section_mapping.find(header_name);
+			if (found_section== section_mapping.end()) {
+				return false;
 			}
 
-			// Or continue execution because this line is not a section but a normal line
+			current_config_section = (*found_section).second;
+			continue;
 		}
 
 		if (isEmpty(line)) continue;
